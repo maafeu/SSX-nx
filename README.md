@@ -36,7 +36,9 @@ Not yet tested or known limits:
 You need a Switch running Atmosphere with sphaira, and the APK of your own SSX for Android (0.0.8430).
 - [docs/README.txt](docs/README.txt): installing it, the first start, controls, settings, updating, removing it.
   Every package carries it.
-- [installer/](installer/README.md): a web page that makes the SD package from your APK, in your browser.
+- The web installer, at **https://maafeu.github.io/SSX-nx/**: it makes the SD package from your APK, in your
+  browser, with nothing uploaded ([installer/](installer/README.md)).
+- The [Releases](https://github.com/maafeu/SSX-nx/releases): the package to copy by hand.
 
 ## How it works
 
