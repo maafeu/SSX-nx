@@ -1,0 +1,9 @@
+{
+  "title": "SSX",
+  "package": "ssx-android",
+  "nro": "ssx-android.nro",
+  "texts": {
+    "game": "The APK of your own SSX for Android: <code>com.ea.ssx</code> version 0.0.8430, about 1.3 GB (often named <code>ssx-v0_0_8430.apk</code>). Only its last megabyte is read to check it; the whole file is copied into the zip as it is.",
+    "footer": "SSX is a trademark of Electronic Arts Inc. This is an unofficial fan port, not affiliated with or endorsed by Electronic Arts or Nintendo. No part of the game is on this page: the package is made from your own copy."
+  }
+}

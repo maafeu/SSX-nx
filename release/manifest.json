@@ -1,0 +1,49 @@
+{
+  "version": "202611191832",
+  "nro": "ssx-android.nro",
+  "nro_sha256": "66b71b82b03d873170834e4f28614b131a100f0002170f396406d4ab66dfb4b7",
+  "files": [
+    {
+      "path": "README.txt",
+      "sha256": "61db3ba35aee2173595982aceaf07e8166a8b9ce2e6b3b28d467ddfd87be8841"
+    },
+    {
+      "path": "settings/config_boost_off.ini",
+      "sha256": "3e81f696dc389198bba7376a2c986cf1a41b67a0ad45661dee529366688e79f3"
+    },
+    {
+      "path": "settings/config_fps_counter.ini",
+      "sha256": "60321e24dd55643242c547cb8c9a15d1617b4b804b6ad7f6c11d373a1865e6c2"
+    },
+    {
+      "path": "settings/config_original30.ini",
+      "sha256": "0d3c809f0f9efe4235f4be676d8b4774a210ea2fcd1bad19b7840b491ffa95dd"
+    },
+    {
+      "path": "settings/config_play.ini",
+      "sha256": "5fe71fdfad1c17b3ef5c60da43b43c93d2681a77f50ceb426ab5d4bdfa808fb8"
+    },
+    {
+      "path": "settings/config_race_sim30.ini",
+      "sha256": "9bf34fea1ce271f4c147aa2dce55e100aae22ac791b38a6b1184f214e4347edc"
+    },
+    {
+      "path": "settings/config_rider_fix.ini",
+      "sha256": "a70199973db7107d6ca9de673548c10f376b37227b0043982d58d0df65efff96"
+    }
+  ],
+  "apk": {
+    "name": "ssx-v0_0_8430.apk",
+    "edition": "SSX 0.0.8430 (com.ea.ssx, armeabi)",
+    "check": [
+      {
+        "path": "lib/armeabi/libgame.so",
+        "crc32": "ab89e5ff",
+        "size": 40585964
+      },
+      {
+        "path": "assets/common/config/memory.cfg"
+      }
+    ]
+  }
+}
