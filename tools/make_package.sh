@@ -82,10 +82,10 @@ EOF
 S="$OUT/settings"
 sed -e 's/^fps_counter = false/fps_counter = true/' "$S/config_play.ini" > "$S/config_fps_counter.ini"
 # the race simulation always at 30 Hz (the phones' rate; frames interpolated to 60)
-sed -e 's/^race_sim_hz = auto/race_sim_hz = 30/' -e 's/^fps_counter = false/fps_counter = true/' "$S/config_play.ini" > "$S/config_race_sim30.ini"
+sed -e 's/^race_sim_hz = auto/race_sim_hz = 30/' "$S/config_play.ini" > "$S/config_race_sim30.ini"
 sed -e 's/^race_fps = 60/race_fps = 30/' -e 's/^race_sim_hz = auto/race_sim_hz = 30/' -e 's/^menu_fps = 60/menu_fps = 30/' "$S/config_play.ini" > "$S/config_original30.ini"
 # only if the console hides the rider too (TESTING.txt, step 2): HumanIK skipped there as well
-sed -e 's/^skip_ik = auto/skip_ik = all/' -e 's/^fps_counter = false/fps_counter = true/' "$S/config_play.ini" > "$S/config_rider_fix.ini"
+sed -e 's/^skip_ik = auto/skip_ik = all/' "$S/config_play.ini" > "$S/config_rider_fix.ini"
 # the CPU boost at loads off (TESTING.txt, LOADING BOOST)
 sed -e 's/^boost_cpu_when_loading = true/boost_cpu_when_loading = false/' "$S/config_play.ini" > "$S/config_boost_off.ini"
 cp "$HERE/docs/README.txt" "$OUT/README.txt"
