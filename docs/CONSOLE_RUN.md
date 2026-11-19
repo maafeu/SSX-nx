@@ -726,3 +726,22 @@ aside as mesa_shader_cache.pack.suspect; this Mesa starts its own.
   on the card. The safety net (shadercache/starting, then off on a young death) stays in the build.
 - Left: build 202611182110, the owner's everyday config, boost off (config-everyday-v2-boostoff.ini, read
   back); shadercache/mesa_shader_cache.pack (5.3 MB) and the old .suspect; the console on the HOME menu.
+
+## Release 0.1.0 check, rel1 (2026-11-18, night)
+
+The build of the first release, 202611190444 (`out/release-v0.1.0`: dependencies rebuilt with `tools/deps`, file
+names mapped, the drawn icon), on the owner's word, handheld, with the owner's everyday config unchanged (boost
+off, shader cache on, frame counter on). The NRO put on the card was read back identical to the release's.
+- Started from the SSX tile (title 0x05A9F60353E17000): the launcher found build 202611190444 newer than the
+  installed 202611182110, installed it and restarted (debug.prev.log); then the game started on its own.
+- The rebuilt Mesa gives a new shader cache name (2843f03515821425), so a cold cache: 575 programs compiled at
+  start-up, all linked (0 failed), stored in the pack; no shadercache/off afterwards.
+- The boot movie, the intro movie and the Rockies' movie played at 60 (FFmpeg rebuilt). After the self-update
+  restart, presses reached the game only after `raw "detachController"` (as seen before).
+- World Tour > Rockies > Whitehorn Mountain > Curnoe's Moustache: Trick It (crash 3's drop, also on a cold cache
+  then): 54 of 59 race windows at full speed, 59.98 fps mean, lowest 59.3; then Restart Drop: the load's long
+  frames 134-279 ms (FGGameSim, AssetStream::Tr), the drop back at 60. 130,528 bone palettes, 0 with NaN; no GL
+  error logged; SoC 36-39 C; GPU 45-47% busy.
+- Closed from the HOME menu (X, Close): the title empty, no new crash.log. No console crash.
+- Left: build 202611190444 on the card (the release's NRO), the owner's config as it was, the console on the
+  HOME menu. The SSX tile keeps the old icon until the forwarder is made again.
