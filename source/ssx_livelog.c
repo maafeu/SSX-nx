@@ -38,18 +38,19 @@ static void tap(const char *line) {
   mutexUnlock(&g_lock);
 }
 
+/* The tap always runs (ssx_abort.c writes its lines to abort.log when libnx or
+ * Mesa aborts); live.log every 10 s only when config.ini asks. */
 void ssx_livelog_init(void) {
+  dcr_log_tap = tap;
   if (!dcr_config()->live_log || g_on)
     return;
   g_on = 1;
-  dcr_log_tap = tap;
   debugPrintf("[live] the newest log lines go to live.log every 10 s\n");
 }
 
-void ssx_livelog_write(void) {
+/* The newest LIVE_BYTES of lines in <game folder>/<name>, by open, write, close. */
+void ssx_livelog_dump(const char *name) {
   static char copy[LIVE_BYTES];
-  if (!g_on)
-    return;
   mutexLock(&g_lock);
   size_t have = g_head < LIVE_BYTES ? g_head : LIVE_BYTES;
   size_t start = g_head - have;
@@ -65,10 +66,15 @@ void ssx_livelog_write(void) {
       skip++;
   }
   char path[512];
-  snprintf(path, sizeof path, "%s/live.log", dcr_game_root());
+  snprintf(path, sizeof path, "%s/%s", dcr_game_root(), name);
   FILE *f = fopen(path, "w");
   if (!f)
     return;
   fwrite(copy + skip, 1, have - skip, f);
   fclose(f);
+}
+
+void ssx_livelog_write(void) {
+  if (g_on)
+    ssx_livelog_dump("live.log");
 }

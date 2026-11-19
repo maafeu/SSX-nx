@@ -28,6 +28,7 @@
 #include "util.h"
 
 volatile unsigned g_ssx_frames_presented;
+volatile int g_ssx_quitting, g_ssx_swap_parked;
 
 /* gl_mesa.c and android_ndk.c */
 EGLDisplay b_eglGetDisplay(EGLNativeDisplayType d);
@@ -287,6 +288,13 @@ JNI_H_DECL(ssx_egl10_call) {
     return jv_z(ok);
   }
   if (!strcmp(n, "eglSwapBuffers")) {
+    if (g_ssx_quitting) {
+      /* the game asked to quit and the window is about to close (ssx_boot.c):
+       * no frame may reach it, so its render thread stays here */
+      g_ssx_swap_parked = 1;
+      for (;;)
+        svcSleepThread(1000000000ll);
+    }
     EGLBoolean ok = b_eglSwapBuffers(real_of(a[0].l), real_of(a[1].l));
     g_ssx_frames_presented++;
     return jv_z(ok);

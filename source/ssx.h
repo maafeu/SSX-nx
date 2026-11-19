@@ -64,6 +64,8 @@ extern JObj *g_ssx_main_thread;   /* com.ea.blast.MainThread */
 
 /* ------------------------------------------------------------ ssx_egl.c */
 extern volatile unsigned g_ssx_frames_presented; /* the game's eglSwapBuffers so far */
+extern volatile int g_ssx_quitting;    /* the game asked to quit: no more frames (ssx_boot.c) */
+extern volatile int g_ssx_swap_parked; /* its render thread is held at its next eglSwapBuffers */
 void ssx_egl_size(int *w, int *h);              /* the window the game renders to */
 
 /* ------------------------------------------------------------ ssx_audio.c */

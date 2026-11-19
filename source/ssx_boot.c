@@ -248,6 +248,31 @@ void ssx_boot_run(void) {
       log_flush_ring();
     }
   }
+  if (g_exit) {
+    /* The game asked to quit (exitApp: Back, B, on its top menu). Its render
+     * thread may be in the middle of a frame, and libnx's exit closes the
+     * window first: Mesa then aborts on that frame, the window refusing the
+     * buffer (2349-0004) or already gone (2345-0008). So no frame is asked for
+     * any more, the next eglSwapBuffers holds the render thread (ssx_egl.c),
+     * and the exit waits until it is held or no frame has come for 100 ms (at
+     * most 2 s): the state the HOME menu's Close leaves, where the game stops
+     * drawing before it is told to exit. */
+    g_ssx_quitting = 1;
+    unsigned seen = g_ssx_frames_presented;
+    const u64 t0 = armGetSystemTick();
+    u64 quiet = t0, now = t0;
+    while (!g_ssx_swap_parked && armTicksToNs(now - quiet) < 100000000ull && armTicksToNs(now - t0) < 2000000000ull) {
+      svcSleepThread(5000000ll);
+      now = armGetSystemTick();
+      if (g_ssx_frames_presented != seen)
+        seen = g_ssx_frames_presented, quiet = now;
+    }
+    debugPrintf("[boot] the game quit: %s after %u ms\n",
+                g_ssx_swap_parked ? "its render thread held at its next frame"
+                : armTicksToNs(now - quiet) >= 100000000ull ? "no frame for 100 ms"
+                                                            : "still drawing (2 s), exiting anyway",
+                (unsigned)(armTicksToNs(now - t0) / 1000000));
+  }
   {
     void ssx_saltynx_stop(void); /* ssx_saltynx.c */
     ssx_saltynx_stop();

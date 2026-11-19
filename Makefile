@@ -25,6 +25,8 @@ PORT_ASFLAGS := $(SSX_I32)
 # libnx's nvMapCreate/nvMapClose through source/ssx_globjs.c's counters: the GPU
 # memory the driver holds (every nouveau buffer is an nvmap of heap memory).
 PORT_LDFLAGS := -Wl,--wrap=nvMapCreate -Wl,--wrap=nvMapClose
+# libnx and Mesa aborts leave a report (source/ssx_abort.c)
+PORT_LDFLAGS += -Wl,--wrap=fatalThrow -Wl,--wrap=diagAbortWithResult
 # The movies: ffmpeg32 (MP4 demuxer, MPEG-4 Part 2 video, AAC; LGPL), built
 # next to this folder (../deps/ffmpeg32/prefix) or where SSX_FFMPEG points.
 # Without it the movies are skipped (source/ssx_video.c).
