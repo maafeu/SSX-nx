@@ -16,5 +16,5 @@ repository.
 None of the template's shader chain, Pyodide, WebAssembly tools or LZ4 packing is used or included.
 
 The software in the NRO (`release/ssx-android.nro`: the port, the android32 runtime, libnx, Mesa, libdrm, FFmpeg and
-newlib) is listed with its licenses in the port's repository, with its source code. `icon.jpg` is the port's own
-forwarder icon. SSX is a trademark of Electronic Arts Inc.; no part of the game is in this installer.
+newlib) is listed with its licenses in the port's repository, with its source code. `icon.jpg` is the port's
+forwarder icon; it shows the SSX logo, a trademark of Electronic Arts Inc. No part of the game is in this installer.

@@ -105,8 +105,10 @@ runtime, libnx32, mesa32 and ffmpeg32 are aks796's; the other credits are in
 SSX is a trademark of Electronic Arts Inc. This is an unofficial fan project, not affiliated with or endorsed by
 Electronic Arts or Nintendo.
 
-No game code, art, music or other data of SSX is in this repository or in what it builds. The program runs the game
-from the player's own copy of the Android release.
+No game code, music or other data of SSX is in this repository or in what it builds. The program runs the game from
+the player's own copy of the Android release. The one piece of SSX's art here is its logo, on the HOME-menu icon
+(`launcher/icon.jpg`, `installer/icon.jpg`): a trademark of Electronic Arts Inc., not covered by this repository's
+license.
 
 SSX-nx's own code is MIT ([LICENSE](LICENSE)). The runtime is MIT (`runtime/LICENSE`), the web installer GPL-3.0
 (`installer/LICENSE`), and some development tools carry their origins' licenses. The program links libnx, Mesa,

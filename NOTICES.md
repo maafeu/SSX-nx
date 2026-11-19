@@ -5,7 +5,9 @@ SSX-nx's own code (`source/`, `launcher/`, `docs/`, the build files and the tool
 Switch program links.
 
 No part of SSX is in this repository or in the program: the game's libraries and data are read from the player's
-own APK at run time. SSX is a trademark of Electronic Arts Inc.
+own APK at run time. SSX is a trademark of Electronic Arts Inc. The HOME-menu icon (`launcher/icon.jpg`,
+`installer/icon.jpg`) shows the SSX logo, Electronic Arts' trademark: the icon is not covered by this repository's
+license.
 
 ## In this repository
 

@@ -156,8 +156,8 @@ REMOVING IT
 ABOUT
 SSX is a trademark of Electronic Arts Inc. This is an unofficial fan port,
 not affiliated with or endorsed by Electronic Arts or Nintendo. No game
-code, art, music or other data of SSX is included; the port runs the game
-from your own copy.
+code, music or other data of SSX is included; the port runs the game from
+your own copy. The icon shows the SSX logo, a trademark of Electronic Arts.
 Source code and new versions: https://github.com/maafeu/SSX-nx
 The port's own code is MIT-licensed. It includes FFmpeg (LGPL 2.1 or
 later) to play the movies, and Mesa, libdrm and libnx; their licences come
