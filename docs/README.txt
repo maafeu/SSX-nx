@@ -30,7 +30,7 @@ INSTALL
    emummc" (or "Enable sysmmc" on a console without emuMMC). sphaira
    warns: "Installing apps will lead to a ban!". An icon installed on
    emuMMC, kept offline, is the safe way.
-   Then, in the Homebrew list, select SSX ("SSX-nx port"), press X >
+   Then, in the Homebrew list, select SSX (by Maafeu), press X >
    Install Forwarder > Create Forwarder (the defaults are fine).
    This puts an "SSX" icon on the HOME menu.
 4. Start the game from that SSX icon. Always use the icon: started from

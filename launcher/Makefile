@@ -5,7 +5,7 @@
 # program first (../build.sh), then ./build.sh here.
 #---------------------------------------------------------------------------------
 APP_TITLE    := SSX
-APP_AUTHOR   := SSX-nx port (EA Sports game)
+APP_AUTHOR   := Maafeu
 APP_VERSION  := 0.1.0
 TARGET       := ssx-android
 PORT_PAYLOAD := ssx_nx

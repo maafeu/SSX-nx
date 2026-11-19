@@ -19,8 +19,8 @@ card). It is driven only through the owner's `switch_remote.py` (renut-ultimate 
    - sphaira installs were off: Menu (Y) -> Advanced Options (Down x4, A) -> Install options (Down x9, A) ->
      "Enable emummc" (Down, A) -> its warning "Installing apps will lead to a ban!" -> Enable. Only emuMMC was
      turned on; "Enable sysmmc" stays off.
-   - B x3 to the Homebrew list -> Down x14, Right: "SSX / SSX-nx port (EA Sports game)", path
-     `/switch/ssx-android/ssx-android.nro` (NOT "SSX / ssx-nx", the Xbox 360 port's) -> X -> Install Forwarder
+   - B x3 to the Homebrew list -> Down x14, Right: "SSX / Maafeu" (until 2026-11-19 "SSX-nx port (EA Sports game)"),
+     path `/switch/ssx-android/ssx-android.nro` (NOT "SSX / ssx-nx", the Xbox 360 port's) -> X -> Install Forwarder
      (Down x5, A) -> Right, Down x6 -> Create Forwarder (defaults: 36-bit, 3 cores).
    - sphaira caches NRO icons: after a new icon, leave sphaira (Plus) and start it again before making the forwarder.
 
