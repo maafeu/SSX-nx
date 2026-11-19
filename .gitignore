@@ -6,6 +6,7 @@
 *.nso
 *.nro
 *.build
+*.nacp
 /portlibs32
 /launcher/build/
 /launcher/romfs/
