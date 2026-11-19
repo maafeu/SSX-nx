@@ -25,7 +25,13 @@ INSTALL
    (Made your package with the web installer? Extract its zip to the root
    of the SD card instead: it holds your APK too, so skip step 2.)
 2. Copy your APK into the same folder: sdmc:/switch/ssx-android/
-3. On the Switch, open sphaira: Homebrew > SSX > Install Forwarder.
+3. On the Switch, open sphaira. It installs nothing until installing is
+   turned on: Menu (Y) > Advanced Options > Install options > "Enable
+   emummc" (or "Enable sysmmc" on a console without emuMMC). sphaira
+   warns: "Installing apps will lead to a ban!". An icon installed on
+   emuMMC, kept offline, is the safe way.
+   Then, in the Homebrew list, select SSX ("SSX-nx port"), press X >
+   Install Forwarder > Create Forwarder (the defaults are fine).
    This puts an "SSX" icon on the HOME menu.
 4. Start the game from that SSX icon. Always use the icon: started from
    inside sphaira or the homebrew menu, ssx-android.nro only shows these
@@ -152,6 +158,7 @@ SSX is a trademark of Electronic Arts Inc. This is an unofficial fan port,
 not affiliated with or endorsed by Electronic Arts or Nintendo. No game
 code, art, music or other data of SSX is included; the port runs the game
 from your own copy.
+Source code and new versions: https://github.com/maafeu/SSX-nx
 The port's own code is MIT-licensed. It includes FFmpeg (LGPL 2.1 or
 later) to play the movies, and Mesa, libdrm and libnx; their licences come
 with their sources.
