@@ -27,6 +27,9 @@
  * render_resolution (patch_main_scrape). The PS Vita port rendered it at
  * 960x544 for its screen; the game's own is 1280x720.
  *
+ * common/fe/assets/button_icons/button_ps3_{x,circle,square,triangle}: the
+ * face-button icons get the Switch's letters (ssx_buttonicons.c).
+ *
  * Each edit first checks that the text is what it expects (the APK version
  * 0.0.8430's); if not, the file is served unchanged and debug.log says so.
  * MIT.
@@ -303,10 +306,13 @@ static void settings(void) {
   }
 }
 
+int ssx_buttonicons_wants(const char *name); /* ssx_buttonicons.c */
+uint8_t *ssx_buttonicons_apply(const char *name, const uint8_t *data, uint32_t len, uint32_t *out_len);
+
 int ssx_assetpatch_wants(const char *name) {
   settings();
   return (g_trim && !strcmp(name, MEMORY_CFG)) || (g_nogc && !strcmp(name, NAV_LUA)) ||
-         ((g_scene_w != 1280 || g_scene_h != 720) && !strcmp(name, MAIN_SCRAPE));
+         ((g_scene_w != 1280 || g_scene_h != 720) && !strcmp(name, MAIN_SCRAPE)) || ssx_buttonicons_wants(name);
 }
 
 /* The edited copy (malloc'd; *out_len its size), or NULL: serve the original. */
@@ -315,6 +321,8 @@ uint8_t *ssx_assetpatch_apply(const char *name, const uint8_t *data, uint32_t le
   char *r = NULL;
   if (!ssx_assetpatch_wants(name))
     return NULL;
+  if (ssx_buttonicons_wants(name)) /* the face-button icons, with the Switch's letters */
+    return ssx_buttonicons_apply(name, data, len, out_len);
   if (!strcmp(name, MEMORY_CFG))
     r = patch_memory_cfg((const char *)data, len, &n);
   else if (!strcmp(name, NAV_LUA))

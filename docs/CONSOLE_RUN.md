@@ -769,3 +769,16 @@ program). debug.log was empty: the program died before closing it.
   SSX HOME does nothing and the game carries on; the clean quit stays for any later use. back4 (a test build with
   a setting) and back5 (202611190730, the final one): B on SSX HOME twice, the game stays on the menu at 60 fps,
   A then opens World Tour; closed from the HOME menu cleanly.
+
+## The face-button icons with the Switch's letters (2026-11-19)
+
+The owner asked for the game's Cross / Circle / Square / Triangle icons as the Joy-Con's letters. Each icon is a
+36x36 RGBA4444 texture; ssx_buttonicons.c redraws its inside as the Switch letter that does the button's job,
+following swap_a_b (checked first on the PC: the C code run over the APK's four icons, the ring untouched).
+- icons1 (202611191504, swap_a_b off): Help > "On the Ground Control Layout" and "Freefalling/In-Air": Jump
+  "Hold (A)", Classic boost "(Y)", Classic rewind "Hold (B)"; debug.log: x -> A, circle -> B, square -> Y (no
+  page loaded the Triangle icon). A Whitehorn race at 60 fps (no face-button hint on that drop), Settings >
+  Controls (still the PlayStation pad picture, by design), closed from the HOME menu cleanly.
+- The owner wants Cross = B and Circle = A: on their word, swap_a_b = true in the card's config.ini (B confirms
+  and jumps). Second start: B on the title and in the menus, Help shows Jump "Hold (B)", Classic boost "(Y)",
+  rewind "Hold (A)"; debug.log: x -> B, circle -> A, square -> Y. Closed cleanly; no new crash.log.
