@@ -69,7 +69,8 @@ The game's own layouts (the STANDARD controls), on the Switch's buttons:
   +             Pause                      Pause
 
 In the menus: A confirm, B back, the D-pad or the left stick to move,
-ZL / ZR to switch pages.
+ZL / ZR to switch pages. On the main menu (SSX HOME) B does nothing:
+close the game from the HOME menu.
 * The port's own addition, as in the console versions of SSX: hold Y for a
 nose press, B for a tail press; board_presses = false turns them off.
 The game's pause menu, Settings > Controls, shows these layouts with

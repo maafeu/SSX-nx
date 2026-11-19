@@ -765,3 +765,7 @@ program). debug.log was empty: the program died before closing it.
   2 s) before libnx closes anything (ssx_boot.c). back3: B on SSX HOME twice (two starts): "its render thread
   held at its next frame after 15 ms" / "10 ms", back to the HOME menu with no error and no new fatal report;
   B in World Tour went back to SSX HOME as before. The abort hook stays: a later abort leaves abort.log.
+- Then, on the owner's word ("pressing B does nothing", no setting): exitApp is ignored (ssx_java.c), so B on
+  SSX HOME does nothing and the game carries on; the clean quit stays for any later use. back4 (a test build with
+  a setting) and back5 (202611190730, the final one): B on SSX HOME twice, the game stays on the menu at 60 fps,
+  A then opens World Tour; closed from the HOME menu cleanly.

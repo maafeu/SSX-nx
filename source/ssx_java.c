@@ -38,9 +38,13 @@ static jint call_native_int(const char *sym, jint dflt) {
 /* ------------------------------------------------------------ the activity */
 H(h_get_instance) { return jv_l(jni_retain(g_ssx_activity)); }
 H(h_get_assets) { return jv_l(jni_retain(g_ssx_asset_manager)); }
+/* The game calls it on Back (B, its Circle) on its top menu, where Android
+ * would close it. A Switch game is closed from the HOME menu: here B does
+ * nothing and the game carries on where it was (the owner's choice). Should a
+ * quit ever be wanted, ssx_request_exit() quits cleanly (ssx_boot.c holds the
+ * render thread before libnx closes the window). */
 H(h_exit_app) {
-  debugPrintf("[java] exitApp: the game asked to quit\n");
-  ssx_request_exit();
+  debugPrintf("[java] exitApp: the game asked to quit (Back on its top menu): ignored\n");
   return jv_none();
 }
 H(h_open_url) {
