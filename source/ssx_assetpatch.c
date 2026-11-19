@@ -27,8 +27,8 @@
  * render_resolution (patch_main_scrape). The PS Vita port rendered it at
  * 960x544 for its screen; the game's own is 1280x720.
  *
- * common/fe/assets/button_icons/button_ps3_{x,circle,square,triangle}: the
- * face-button icons get the Switch's letters (ssx_buttonicons.c).
+ * common/fe/assets/button_icons/button_ps3_*: the face, shoulder, Start and
+ * Select icons become the Switch's buttons (ssx_buttonicons.c).
  *
  * Each edit first checks that the text is what it expects (the APK version
  * 0.0.8430's); if not, the file is served unchanged and debug.log says so.

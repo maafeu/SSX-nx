@@ -782,3 +782,7 @@ following swap_a_b (checked first on the PC: the C code run over the APK's four 
 - The owner wants Cross = B and Circle = A: on their word, swap_a_b = true in the card's config.ini (B confirms
   and jumps). Second start: B on the title and in the menus, Help shows Jump "Hold (B)", Classic boost "(Y)",
   rewind "Hold (A)"; debug.log: x -> B, circle -> A, square -> Y. Closed cleanly; no new crash.log.
+- Then, on the owner's word, the shoulder, Start and Select icons too: L1/R1 -> L/R and L2/R2 -> ZL/ZR in their
+  own boxes, Start -> + and Select -> - in a ring like the face buttons'. icons2 (202611191832, swap_a_b on):
+  Help's two control pages show R (boost), L (rewind), ZL/ZR (signature trick, Classic grabs) and + (pause);
+  debug.log lists all nine icons it loaded drawn (Select's too). Closed cleanly; no new crash.log.

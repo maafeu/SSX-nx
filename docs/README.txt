@@ -73,13 +73,13 @@ ZL / ZR to switch pages. On the main menu (SSX HOME) B does nothing:
 close the game from the HOME menu.
 * The port's own addition, as in the console versions of SSX: hold Y for a
 nose press, B for a tail press; board_presses = false turns them off.
-The game's hints and its Help pages show the face buttons with the
-Switch's letters (they follow swap_a_b). Still the PlayStation's: the
-shoulder icons (L1 / R1 = L / R, L2 / R2 = ZL / ZR), Start's arrow (= +)
-and the pictures of a PlayStation pad in the pause menu's Settings >
-Controls and on the loading screens: there Cross = A, Circle = B,
-Square = Y, Triangle = X. Settings > Controls switches between the
-game's STANDARD and CLASSIC controls.
+The game's hints and its Help pages show the Switch's buttons (A, B, X,
+Y, L, R, ZL, ZR, +, -; the letters follow swap_a_b). Only the pictures
+of a PlayStation pad, in the pause menu's Settings > Controls and on the
+loading screens, are still the PlayStation's: there Cross = A,
+Circle = B, Square = Y, Triangle = X, L1 / R1 = L / R, L2 / R2 = ZL / ZR,
+Start = +. Settings > Controls switches between the game's STANDARD and
+CLASSIC controls.
 Prefer the bottom button (B) to confirm and jump, as on a PlayStation
 pad? Set swap_a_b = true in config.ini: then Cross = B, Circle = A,
 and the icons say so.
