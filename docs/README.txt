@@ -137,9 +137,10 @@ IF SOMETHING GOES WRONG
   run.
 - "This was opened from inside another icon": start the game from its own
   SSX icon on the HOME menu, not from sphaira or the homebrew menu.
-- Anything else: send sdmc:/switch/ssx-android/debug.log (and crash.log,
-  if there is one) with a note of what happened. debug.log is rewritten at
-  every start; the start before is kept as debug.prev.log.
+- Anything else: send sdmc:/switch/ssx-android/debug.log (and crash.log
+  or abort.log, if there is one) with a note of what happened. debug.log
+  is rewritten at every start; the start before is kept as
+  debug.prev.log.
 
 
 REMOVING IT
