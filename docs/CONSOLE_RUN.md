@@ -745,3 +745,23 @@ off, shader cache on, frame counter on). The NRO put on the card was read back i
 - Closed from the HOME menu (X, Close): the title empty, no new crash.log. No console crash.
 - Left: build 202611190444 on the card (the release's NRO), the owner's config as it was, the console on the
   HOME menu. The SSX tile keeps the old icon until the forwarder is made again.
+
+## B on the main menu: the game's own quit crashed the exit (2026-11-19)
+
+The owner found that B on SSX HOME (and on what they took for course select) ended the game with an error:
+2345-0008 once, 2349-0004 twice (Atmosphere's fatal reports: the result only, no registers or stack for a 32-bit
+program). debug.log was empty: the program died before closing it.
+- B is the game's Circle (key 100); on its top menu the game answers it with MainActivity.exitApp, the Android
+  "quit" (back1, back2). The port then left its loop and returned from main, and libnx's exit closed the window
+  first, while FGGameRender was still drawing at 60 fps: Mesa's Switch EGL driver calls fatalThrow() when the
+  window refuses a buffer (2349-0004, LibnxBinderError_BadValue) or is already gone (2345-0008,
+  LibnxError_NotInitialized). The HOME menu's Close never hit it: the game has stopped drawing by then.
+- A diagnostic build (202611190701) wrapped fatalThrow() and diagAbortWithResult() (source/ssx_abort.c: the
+  result, the caller, the thread and the stack's code addresses to the log, the newest log lines to abort.log).
+  This abort came after the log and the card were closed, so it wrote nothing, but debug.log, closed in time,
+  showed key 100 -> exitApp -> leaving -> exiting, and the crash.
+- Fix (202611190712): on the game's quit, no frame is asked for any more, the render thread is held at its
+  next eglSwapBuffers (ssx_egl.c), and the exit waits until it is held or no frame has come for 100 ms (at most
+  2 s) before libnx closes anything (ssx_boot.c). back3: B on SSX HOME twice (two starts): "its render thread
+  held at its next frame after 15 ms" / "10 ms", back to the HOME menu with no error and no new fatal report;
+  B in World Tour went back to SSX HOME as before. The abort hook stays: a later abort leaves abort.log.
