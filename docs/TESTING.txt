@@ -1,0 +1,160 @@
+SSX for Switch (ssx-android) -- console test notes
+=============================================
+
+INSTALL
+1. Copy SD/switch/ssx-android/ to the SD card (sdmc:/switch/ssx-android/).
+2. Copy your own SSX APK (ssx-v0_0_8430.apk, com.ea.ssx 0.0.8430, ~1.3 GB)
+   into sdmc:/switch/ssx-android/ (any name). It is read in place: nothing is
+   extracted from it but the two libraries.
+3. In sphaira, make a forwarder (HOME-menu icon) for ssx-android.nro, and start
+   the game from that icon. The first start installs the 32-bit game
+   program for that icon and restarts (the launcher says so); then the
+   game unpacks its libraries (a progress bar, ~10 s).
+4. The game's own first start then copies its music and movies out of the
+   APK into sdmc:/switch/ssx-android/data/files (~750 MB, once, ~5 MB/s on
+   the console): ~20 s of black screen before the EA logo (the music), and
+   ~2 minutes on the "Loading" screen after the title (the movies). Later
+   starts skip it.
+
+CONTROLS
+A confirm (PlayStation Cross), B back (Circle), Y Square, X Triangle,
+L/R = L1/R1, ZL/ZR = L2/R2, sticks and their clicks, + Start, - Select.
+[controls] swap_a_b = true: positional (B confirms).
+Riding on the ground: hold Y for a nose press, B for a tail press (the console
+versions' presses; [controls] board_presses = false turns them off).
+
+FRAME-RATE COUNTER
+settings/config_fps_counter.ini as config.ini (or [display] fps_counter =
+true): frames per second top left, green at 59 and over; in races also the
+race's speed ("SIM 100%"; under 100 the race plays in slow motion).
+
+WHAT TO TEST (in order)
+1. Boot to the title ("TAP SCREEN TO START": press A), the online
+   agreements (D-pad Down to ACCEPT, then A), the SSX HOME menu with the
+   3D globe. Expect 60 fps (menu_fps 60).
+2. WORLD TOUR -> the first drop: does the RIDER show on the board? Under the
+   emulator HumanIK (which fits the rider's limbs to the board) made the
+   rider's bones NaN and the rider invisible; it is skipped there now and the
+   rider shows. On the console HumanIK runs ([debug] skip_ik = auto), and the
+   rider has shown in every console session so far. If the rider is missing
+   on the console: settings/config_rider_fix.ini as config.ini (HumanIK
+   skipped there too), and send debug.log (it counts "palettes ... with
+   NaN").
+3. A full race: frame rate (debug.log, every 10 s: "[boot] N frames (x fps)"
+   and "[fps] simulation ... game at N% speed"), sound, controls, results
+   screen, back to the menus, a second race (memory).
+4. HOME and back, sleep and wake, during a race and in the menus. Tested in
+   handheld and docked (HOME from a menu, during a load and mid-race; sleeps
+   of 19 minutes in handheld and ~2 minutes in the dock; taken out of the
+   dock while asleep and woken in handheld): each came back at 60 fps, the
+   race clock not counting the time away. Waking in the dock costs one frame
+   of ~0.8 s while the TV picture comes back. Not yet tried: putting it into
+   the dock while asleep, and a sleep of hours.
+5. Races are simulated at 60 Hz ([display] race_sim_hz = auto) and drop to
+   30 Hz for the rest of a race the console cannot keep up with; debug.log
+   then says "[fps] race simulation 60 -> 30 Hz". The first drop held 60 on
+   the console. Worth trying: a race with other riders. For the phones'
+   30 Hz everywhere: settings/config_race_sim30.ini as config.ini.
+
+MEMORY
+EA's heaps are sized from what the game uses ([performance] trim_heaps,
+on): ~150 MB more free memory than the Android file's sizes. debug.log's
+[heaps] lines give each heap's peak. If debug.log
+ever says "[ssx] OUT OF MEMORY ... in '<heap>'", set trim_heaps = false
+and send the log. Long sessions: memory in use stays flat across loads
+(tested to 37 loads, ~95 minutes, in one game process).
+
+LOADING BOOST
+[performance] boost_cpu_when_loading (on by default): the CPU runs at
+1785 MHz during start-up and long loading frames, through the system's own
+boost mode, so a Restart freezes for ~0.37 s instead of ~0.56 s. Some early
+whole-console crashes during development came at loads with it on, but
+since the memory fixes there has been none with it on or off, so it is not
+shown to be the cause. To leave it off: settings/config_boost_off.ini as
+config.ini (or set it to false).
+
+KNOWN
+- Movies play (FFmpeg, from the APK): the EA logo, the intro, the World Tour
+  comics, the fly-ins. [game] movies = false skips them.
+- Online features (EA's servers) do nothing.
+- Under the emulator, one crash in a race came from the same NaN poses
+  (EA::Ant::Anim::CurveClipNode::Exec): watch for crash.log in races.
+
+WHAT TO SEND BACK
+sdmc:/switch/ssx-android/debug.log, crash.log (if any), config.ini, and a note of
+what you saw. debug/ in this package has the ELF matching this build
+(ssx_nx.elf) and the source snapshot, for symbolizing crash.log addresses:
+  arm-none-eabi-addr2line -f -C -e ssx_nx.elf <address>
+
+STATUS MONITOR OVERLAY (SALTYNX)
+With SaltyNX and Status Monitor Overlay installed, Status Monitor's FPS
+counter and graph work for SSX ([display] saltynx = true, the default).
+SaltyNX does not inject itself into homebrew titles such as this forwarder,
+so the game writes the numbers SaltyNX's NX-FPS would (tested on the console
+with Status Monitor 1.4.1: FPS Graph and counter). debug.log says
+"[saltynx] the frame rate goes to SaltyNX's shared memory ..." when it
+works, "[saltynx] SaltyNX is not running" without SaltyNX. Resolution and
+FPS-lock controls in Status Monitor do nothing here (the game's own
+[display] race_fps / menu_fps set the rate).
+
+SHADER CACHE
+[performance] shader_cache (on): the compiled shaders are kept in
+sdmc:/switch/ssx-android/shadercache/ (about 5 MB), so starts after the first
+skip the shader compiler. Measured on The Dagger (build 202611182110): the
+longest start-up frame 3.6 s -> 2.3 s; a drop's loading screen without its
+six half-second compile frames; each Restart one ~0.52 s freeze instead of
+two (~1.1 s). The first start with an empty cache is slower once (it
+compiles and writes: a 7 s start-up frame). Safety net: a start that ends within its first minute without
+leaving cleanly (a crash, or the console going down) turns the cache off for
+the following starts (shadercache/off; the cache it used is kept as
+mesa_shader_cache.pack.suspect). Delete shadercache/off to use it again, and
+please send debug.log and debug.prev.log if that happens.
+
+DRAW DISTANCE
+[display] detail_distance (percent, 100 = as shipped): how far trees,
+objects and terrain keep their detailed models and are drawn at all. 150 or
+200 push detail and pop-in farther away and cost render time in the dense
+drops; 75 or 50 save it.
+
+RESOLUTION
+Two settings in [display]. resolution is the window: auto (the default:
+1080 when the console is docked at start-up, 720 in handheld), 720 or 1080.
+The menus and the HUD are drawn at it. render_resolution is the 3D scene's:
+1080 (the default), 900, 720 or auto (the window's); the game's post-effects
+pass scales the scene to the window. In handheld, the 1080 scene is scaled
+down to the 720 screen (supersampling: smoother edges, more GPU work:
+measured 60 fps on Curnoe's Moustache, the GPU ~40% busy instead of ~24%;
+720 or auto saves battery). Docked, the window and the scene are both
+1920x1080 (measured 60 fps on the same drop, the GPU ~40% busy at 768 MHz).
+The window is chosen at start-up: docking or undocking during play keeps it
+(the console scales the picture). To dock during play and keep 1080, use
+resolution = 1080. [display] follow_docking (experimental, off): with
+resolution auto, the window follows docking during play and the game is told
+its screen changed size; it worked on screen, but the game aborted once in 12
+test switches, so it stays off.
+
+[performance] gl_finish = frame (the default): the game calls glFinish at
+the start of every frame, which made the CPU wait each frame for the GPU to
+finish, so the two never worked at the same time (1080 in handheld, before:
+58.3 fps with the GPU ~45% busy). frame waits only for the frame before the
+last: the GPU draws one frame while the CPU prepares the next. flush sends
+the commands on with no wait at all; keep restores the game's own
+behaviour. debug.log: "[gl] N glFinish calls in the last 10 s (...; W waited
+for the frame before, T ms in all)" and "[gpu] busy X% on average".
+
+PROFILING ON THE CONSOLE
+debug.log already carries the game loops' rates every 10 s ("[fps]") and
+the long frames ("[frame] frame N took M ms; CPU since: <thread> <ms>...").
+debug.log can only be read once the game is closed; [debug] live_log = true
+writes the newest lines to live.log every 10 s, readable while it runs.
+config.ini [debug] log_java_calls = true logs every Java call (slow: only
+for a bug report).
+[debug] profile = true samples the game's busy threads every ~3 ms:
+prof.txt (the whole session), prof-race.txt (the race windows at full
+speed alone) and prof-long.txt (the long frames), rewritten every 30 s;
+the source snapshot's tools/prof_symbols.py puts them to function names
+with debug/ssx_nx.elf and the player's own libgame.so.
+[debug] math_selftest = true checks at start-up (~10 s) that the
+FPU-built sinf, cosf, acosf and asinf give newlib's results bit for bit:
+debug.log's "[math] self-test" lines (0 differ on the developer's
+console).

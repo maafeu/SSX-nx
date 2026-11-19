@@ -1,0 +1,6 @@
+# ssx-android web installer: the release (it holds the NRO: tools/make_release.py makes it) and test outputs.
+# A test zip holds the player's APK: game data never belongs here.
+release/
+__pycache__/
+*.zip
+*.apk

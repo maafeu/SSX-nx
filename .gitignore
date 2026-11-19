@@ -1,0 +1,19 @@
+/build/
+*.o
+*.d
+*.elf
+*.nsp
+*.nso
+*.nro
+*.build
+/portlibs32
+/launcher/build/
+/launcher/romfs/
+/out/
+# game data never goes in the repository
+*.apk
+*.so
+*.obb
+# Python bytecode
+__pycache__/
+*.pyc

@@ -1,0 +1,62 @@
+--- a/source/nouveau.c
++++ b/source/nouveau.c
+@@ -337,6 +337,23 @@
+ 	return ret;
+ }
+ 
++/* SSX-nx: a port may supply the memory behind its buffer objects (weak; the
++ * default is what this file always did). The SSX port keeps big blocks for
++ * reuse: a 1280x720 texture freed and remade at every load left a hole that
++ * memalign could not reuse, and the heap's arena grew ~4 MB a load. */
++__attribute__((weak)) void *
++nouveau_switch_bo_mem_alloc(size_t size)
++{
++	return memalign(0x1000, size);
++}
++
++__attribute__((weak)) void
++nouveau_switch_bo_mem_free(void *mem, size_t size)
++{
++	(void)size;
++	free(mem);
++}
++
+ static void
+ nouveau_bo_del(struct nouveau_bo *bo)
+ {
+@@ -348,7 +365,7 @@
+ 	nvAddressSpaceUnmap(&nvdev->addr_space, bo->offset);
+ 	nvMapClose(&nvbo->map);
+ 	if (nvbo->map_addr)
+-		free(nvbo->map_addr);
++		nouveau_switch_bo_mem_free(nvbo->map_addr, bo->size);
+ 	free(nvbo);
+ }
+ 
+@@ -376,7 +393,7 @@
+ 		kind = (NvKind)config->nvc0.memtype;
+ 
+ 	TRACE("Allocating BO of size %ld, align %d, flags 0x%x and kind 0x%x\n", size, align, flags, kind);
+-	void* mem = memalign(0x1000, size);
++	void* mem = nouveau_switch_bo_mem_alloc(size);
+ 	if (!mem)
+ 	{
+ 		TRACE("Out of memory\n");
+@@ -388,7 +405,7 @@
+ 	if (R_FAILED(rc))
+ 	{
+ 		TRACE("Failed to create nvmap object (%x)\n", rc);
+-		free(mem);
++		nouveau_switch_bo_mem_free(mem, size);
+ 		free(nvbo);
+ 		return -rc;
+ 	}
+@@ -398,7 +415,7 @@
+ 	{
+ 		TRACE("Failed to map object to address space (%x)\n", rc);
+ 		nvMapClose(&nvbo->map);
+-		free(mem);
++		nouveau_switch_bo_mem_free(mem, size);
+ 		free(nvbo);
+ 		return -rc;
+ 	}

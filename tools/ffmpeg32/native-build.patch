@@ -1,0 +1,30 @@
+--- a/build_ffmpeg32.sh
++++ b/build_ffmpeg32.sh
+@@ -21,8 +21,16 @@
+ SRC=$TOP/ffmpeg-$VERSION
+ PREFIX=$TOP/prefix
+ BUILD=$TOP/build
+-NX=$DEVKITPRO/libnx32
++NX=${LIBNX32:-$DEVKITPRO/libnx32}
+ ARCH="-march=armv8-a+crc+crypto -mtune=cortex-a57 -mfloat-abi=softfp -mfpu=neon-fp-armv8 -mtp=soft -fPIE -ftls-model=local-exec"
++# The source file names FFmpeg's asserts keep (__FILE__) read ffmpeg-<version>/...,
++# not the folders of the machine that built it. In devkitPro's MSYS2 on Windows
++# the compiler is given C:/... paths, so both spellings are mapped (the last
++# matching map wins in GCC).
++MAPS="-ffile-prefix-map=$TOP=. -ffile-prefix-map=$SRC=ffmpeg-$VERSION"
++if command -v cygpath >/dev/null 2>&1; then
++  MAPS="$MAPS -ffile-prefix-map=$(cygpath -m "$TOP")=. -ffile-prefix-map=$(cygpath -m "$SRC")=ffmpeg-$VERSION"
++fi
+ 
+ # What to build. The default is an MP4 player: the mov demuxer, MPEG-4 Part 2
+ # video and AAC audio. Add what your program needs, e.g.
+@@ -54,7 +62,8 @@
+     --disable-avdevice --disable-avfilter --disable-swscale --disable-swresample --disable-postproc \
+     --disable-network --disable-iconv --disable-zlib --disable-bzlib --disable-lzma \
+     --disable-everything $COMPONENTS \
+-    --extra-cflags="$ARCH -O2 -D__SWITCH__ -fno-short-enums -ffunction-sections -fdata-sections -isystem $NX/include" \
++    --host-cc="${HOST_CC:-cc}" \
++    --extra-cflags="$ARCH -O2 -D__SWITCH__ -fno-short-enums -ffunction-sections -fdata-sections -Wno-error=incompatible-pointer-types -Wno-incompatible-pointer-types $MAPS -isystem $NX/include" \
+     --extra-ldflags="$ARCH -Wl,-z,notext -specs=$NX/switch32.specs -L$NX/lib" \
+     --extra-libs="-lnx -lm"
+ fi

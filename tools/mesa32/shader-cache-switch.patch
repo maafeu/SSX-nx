@@ -1,0 +1,609 @@
+--- a/meson.build
++++ b/meson.build
+@@ -833,7 +833,8 @@
+ with_shader_cache = false
+ _shader_cache = get_option('shader-cache')
+ if _shader_cache != 'false'
+-  if ['windows','horizon'].contains(host_machine.system())
++  # horizon (the Switch): src/util/disk_cache_switch.c, a single pack file
++  if ['windows'].contains(host_machine.system())
+     if _shader_cache == 'true'
+       error('Shader Cache does not currently work on Windows')
+     endif
+--- a/src/util/meson.build
++++ b/src/util/meson.build
+@@ -41,6 +41,7 @@
+   'debug.c',
+   'debug.h',
+   'disk_cache.c',
++  'disk_cache_switch.c',
+   'disk_cache.h',
+   'double.c',
+   'double.h',
+--- a/src/util/disk_cache.h
++++ b/src/util/disk_cache.h
+@@ -260,6 +260,16 @@
+ disk_cache_set_callbacks(struct disk_cache *cache, disk_cache_put_cb put,
+                          disk_cache_get_cb get);
+ 
++#ifdef __SWITCH__
++/* disk_cache_switch.c: counters for the program's log */
++void
++disk_cache_switch_stats(struct disk_cache *cache, unsigned *hits, unsigned *misses, unsigned *puts,
++                        unsigned *objects, unsigned *keys, unsigned *bytes);
++int
++disk_cache_switch_global_stats(unsigned *hits, unsigned *misses, unsigned *puts, unsigned *objects,
++                               unsigned *keys, unsigned *bytes);
++#endif
++
+ #else
+ 
+ static inline struct disk_cache *
+--- a/src/util/disk_cache.c
++++ b/src/util/disk_cache.c
+@@ -21,7 +21,9 @@
+  * IN THE SOFTWARE.
+  */
+ 
+-#ifdef ENABLE_SHADER_CACHE
++/* The Switch has its own implementation (disk_cache_switch.c): no mmap,
++ * flock, nftw or zlib there. */
++#if defined(ENABLE_SHADER_CACHE) && !defined(__SWITCH__)
+ 
+ #include <ctype.h>
+ #include <ftw.h>
+--- a/src/gallium/drivers/nouveau/nouveau_screen.c
++++ b/src/gallium/drivers/nouveau/nouveau_screen.c
+@@ -153,9 +153,25 @@
+    uint64_t driver_flags = 0;
+ 
+    _mesa_sha1_init(&ctx);
++#ifdef __SWITCH__
++   /* No build id or dladdr in a static Switch program to identify this
++    * build of the compiler by. The program names its Mesa (a hash of the
++    * libraries it linked, MESA_SHADER_CACHE_BUILD_ID); without that, the
++    * time this file was compiled. Mesa's version always goes in. */
++   {
++      static const char version[] = PACKAGE_VERSION " " __DATE__ " " __TIME__;
++      const char *id = getenv("MESA_SHADER_CACHE_BUILD_ID");
++      _mesa_sha1_update(&ctx, PACKAGE_VERSION, sizeof(PACKAGE_VERSION));
++      if (id && *id)
++         _mesa_sha1_update(&ctx, id, strlen(id));
++      else
++         _mesa_sha1_update(&ctx, version, sizeof(version));
++   }
++#else
+    if (!disk_cache_get_function_identifier(nouveau_disk_cache_create,
+                                            &ctx))
+       return;
++#endif
+ 
+    _mesa_sha1_final(&ctx, sha1);
+    disk_cache_format_hex_id(cache_id, sha1, 20 * 2);
+--- /dev/null
++++ b/src/util/disk_cache_switch.c
+@@ -0,0 +1,524 @@
++/*
++ * disk_cache_switch.c -- Mesa's shader disk cache on the Nintendo Switch.
++ *
++ * The POSIX implementation (disk_cache.c) wants mmap for its key index, flock,
++ * nftw for eviction and zlib or zstd for compression, none of which a Switch
++ * homebrew program has, so Mesa never built the cache there: every GLSL
++ * program was compiled and linked again on every run, and the games compile
++ * them while they load the next part of a level (SSX-nx, console run c3: the
++ * asset streamer compiling 24 shaders at a time mid-race, holding the one GL
++ * context the render thread needs).
++ *
++ * This implements the same API (disk_cache.h) with what newlib and libnx have:
++ * one pack file, <MESA_SHADER_CACHE_DIR>/mesa_shader_cache.pack:
++ *   header  {u32 'CSPK', u32 version, u8 sha1(driver keys)[20]}
++ *   entries {u32 'CSPE', u32 kind, u8 key[20], u32 size, u32 crc32(data)}, data
++ * kind 0 an object (disk_cache_put / _get), 1 a key alone (_put_key /
++ * _has_key), 2 a removal. At creation the entries' headers are read (not
++ * their data) into an index in RAM; a header for another Mesa build (the
++ * driver keys: nouveau hashes the build into them) or a damaged file starts a
++ * new pack. A torn last entry (the program closed mid-write) ends the scan and
++ * is written over. Objects are read back with one seek and one read and
++ * checked against their CRC; writes go to a queue thread so that a program
++ * compiled for the first time does not also wait for the SD card. The pack
++ * stops growing at MAX_PACK_BYTES. No cache directory set: no cache.
++ *
++ * disk_cache_switch_stats() gives the port the counts for its log.
++ */
++
++#if defined(ENABLE_SHADER_CACHE) && defined(__SWITCH__)
++
++#include <errno.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <sys/stat.h>
++
++#include "c11/threads.h"
++#include "util/crc32.h"
++#include "util/debug.h"
++#include "util/mesa-sha1.h"
++#include "util/u_queue.h"
++#include "disk_cache.h"
++
++#define PACK_MAGIC 0x4b505343u  /* "CSPK" */
++#define ENTRY_MAGIC 0x45505343u /* "CSPE" */
++#define PACK_VERSION 1u
++#define CACHE_VERSION 1
++#define MAX_PACK_BYTES (128u << 20)
++#define MAX_OBJECT (16u << 20)
++
++enum { KIND_OBJECT = 0, KIND_KEY = 1, KIND_REMOVED = 2 };
++
++struct pack_header {
++   uint32_t magic, version;
++   uint8_t driver[20];
++};
++
++struct entry_header {
++   uint32_t magic, kind;
++   uint8_t key[CACHE_KEY_SIZE];
++   uint32_t size, crc;
++};
++
++struct slot {
++   uint8_t key[CACHE_KEY_SIZE];
++   uint8_t used;     /* 1 an entry, 2 removed */
++   uint32_t offset;  /* of the data */
++   uint32_t size;
++};
++
++struct table {
++   struct slot *slots;
++   unsigned cap, count;
++};
++
++struct disk_cache {
++   uint8_t *driver_keys_blob;
++   size_t driver_keys_blob_size;
++   uint8_t driver_sha1[20];
++
++   mtx_t lock;
++   FILE *file;
++   uint32_t end; /* where the next entry goes */
++   struct table objects, keys;
++
++   struct util_queue queue;
++   bool have_queue;
++
++   unsigned hits, misses, puts, dropped;
++
++   disk_cache_put_cb blob_put_cb;
++   disk_cache_get_cb blob_get_cb;
++};
++
++/* the writer thread: no higher than the game's threads (priority 59 on cores 0-2 is
++ * the runtime's guest priority; libnx's default 0x2C would run first) */
++extern uint32_t svcSetThreadPriority(uint32_t handle, uint32_t priority);
++#define CUR_THREAD 0xFFFF8000u
++static __thread bool t_lowered;
++
++static struct disk_cache *g_last; /* for disk_cache_switch_global_stats */
++
++struct put_job {
++   struct util_queue_fence fence;
++   struct disk_cache *cache;
++   uint32_t kind;
++   cache_key key;
++   void *data;
++   size_t size;
++};
++
++/* ---------------------------------------------------------------- index */
++static uint32_t
++key_hash(const uint8_t *key)
++{
++   uint32_t h;
++   memcpy(&h, key, sizeof h); /* the keys are SHA-1 digests */
++   return h;
++}
++
++static struct slot *
++table_find(struct table *t, const uint8_t *key, bool insert)
++{
++   if (insert && (t->count + 1) * 4 >= t->cap * 3) {
++      unsigned cap = t->cap ? t->cap * 2 : 1024;
++      struct slot *s = calloc(cap, sizeof *s);
++      if (!s)
++         return NULL;
++      for (unsigned i = 0; i < t->cap; i++) {
++         if (!t->slots[i].used)
++            continue;
++         unsigned j = key_hash(t->slots[i].key) & (cap - 1);
++         while (s[j].used)
++            j = (j + 1) & (cap - 1);
++         s[j] = t->slots[i];
++      }
++      free(t->slots);
++      t->slots = s;
++      t->cap = cap;
++   }
++   if (!t->cap)
++      return NULL;
++   unsigned i = key_hash(key) & (t->cap - 1);
++   while (t->slots[i].used) {
++      if (!memcmp(t->slots[i].key, key, CACHE_KEY_SIZE))
++         return &t->slots[i];
++      i = (i + 1) & (t->cap - 1);
++   }
++   if (!insert)
++      return NULL;
++   memcpy(t->slots[i].key, key, CACHE_KEY_SIZE);
++   t->count++;
++   return &t->slots[i];
++}
++
++static void
++index_entry(struct disk_cache *cache, const struct entry_header *h, uint32_t data_offset)
++{
++   struct table *t = h->kind == KIND_KEY ? &cache->keys : &cache->objects;
++   struct slot *s = table_find(t, h->key, true);
++   if (!s)
++      return;
++   if (h->kind == KIND_REMOVED) {
++      s->used = 2;
++      return;
++   }
++   s->used = 1;
++   s->offset = data_offset;
++   s->size = h->size;
++}
++
++/* ---------------------------------------------------------------- the pack */
++static bool
++start_pack(struct disk_cache *cache, const char *path)
++{
++   FILE *f = fopen(path, "w+b");
++   if (!f)
++      return false;
++   setvbuf(f, NULL, _IOFBF, 64 * 1024);
++   struct pack_header h = { PACK_MAGIC, PACK_VERSION, { 0 } };
++   memcpy(h.driver, cache->driver_sha1, sizeof h.driver);
++   if (fwrite(&h, sizeof h, 1, f) != 1 || fflush(f)) {
++      fclose(f);
++      return false;
++   }
++   cache->file = f;
++   cache->end = sizeof h;
++   return true;
++}
++
++static bool
++open_pack(struct disk_cache *cache, const char *path)
++{
++   FILE *f = fopen(path, "r+b");
++   if (!f)
++      return start_pack(cache, path);
++   setvbuf(f, NULL, _IOFBF, 64 * 1024);
++   struct pack_header h;
++   long file_size = -1;
++   if (fseek(f, 0, SEEK_END) == 0)
++      file_size = ftell(f);
++   if (file_size < (long)sizeof h || fseek(f, 0, SEEK_SET) || fread(&h, sizeof h, 1, f) != 1 ||
++       h.magic != PACK_MAGIC || h.version != PACK_VERSION ||
++       memcmp(h.driver, cache->driver_sha1, sizeof h.driver)) {
++      fclose(f);
++      return start_pack(cache, path); /* another Mesa, or not a pack */
++   }
++   uint32_t pos = sizeof h;
++   for (;;) {
++      struct entry_header e;
++      if ((long)(pos + sizeof e) > file_size || fseek(f, pos, SEEK_SET) || fread(&e, sizeof e, 1, f) != 1)
++         break;
++      if (e.magic != ENTRY_MAGIC || e.kind > KIND_REMOVED || e.size > MAX_OBJECT ||
++          (long)(pos + sizeof e + e.size) > file_size)
++         break; /* the end, or a torn last entry: written over from here */
++      index_entry(cache, &e, pos + sizeof e);
++      pos += sizeof e + e.size;
++   }
++   cache->file = f;
++   cache->end = pos;
++   return true;
++}
++
++static void
++write_entry_locked(struct disk_cache *cache, uint32_t kind, const uint8_t *key, const void *data, size_t size)
++{
++   if (!cache->file)
++      return;
++   struct table *t = kind == KIND_KEY ? &cache->keys : &cache->objects;
++   struct slot *s = table_find(t, key, false);
++   if (kind != KIND_REMOVED && s && s->used == 1)
++      return; /* already there */
++   if (cache->end + sizeof(struct entry_header) + size > MAX_PACK_BYTES) {
++      cache->dropped++;
++      return;
++   }
++   struct entry_header e = { ENTRY_MAGIC, kind, { 0 }, (uint32_t)size, size ? util_hash_crc32(data, size) : 0 };
++   memcpy(e.key, key, CACHE_KEY_SIZE);
++   if (fseek(cache->file, cache->end, SEEK_SET) || fwrite(&e, sizeof e, 1, cache->file) != 1 ||
++       (size && fwrite(data, size, 1, cache->file) != 1) || fflush(cache->file)) {
++      cache->dropped++;
++      return;
++   }
++   index_entry(cache, &e, cache->end + sizeof e);
++   cache->end += sizeof e + size;
++   if (kind == KIND_OBJECT)
++      cache->puts++;
++}
++
++static void
++put_job_run(void *data, int thread_index)
++{
++   struct put_job *job = data;
++   if (!t_lowered) {
++      t_lowered = true;
++      svcSetThreadPriority(CUR_THREAD, 59); /* the lowest an application may use */
++   }
++   mtx_lock(&job->cache->lock);
++   write_entry_locked(job->cache, job->kind, job->key, job->data, job->size);
++   mtx_unlock(&job->cache->lock);
++}
++
++static void
++put_job_free(void *data, int thread_index)
++{
++   struct put_job *job = data;
++   free(job->data);
++   free(job);
++}
++
++static void
++queue_entry(struct disk_cache *cache, uint32_t kind, const cache_key key, const void *data, size_t size)
++{
++   if (!cache->file || size > MAX_OBJECT)
++      return;
++   struct put_job *job = calloc(1, sizeof *job);
++   void *copy = size ? malloc(size) : NULL;
++   if (!job || (size && !copy)) {
++      free(job);
++      free(copy);
++      return;
++   }
++   job->cache = cache;
++   job->kind = kind;
++   memcpy(job->key, key, CACHE_KEY_SIZE);
++   if (size)
++      memcpy(copy, data, size);
++   job->data = copy;
++   job->size = size;
++   if (cache->have_queue) {
++      util_queue_fence_init(&job->fence);
++      util_queue_add_job(&cache->queue, job, &job->fence, put_job_run, put_job_free, sizeof *job);
++   } else {
++      put_job_run(job, 0);
++      put_job_free(job, 0);
++   }
++}
++
++/* ---------------------------------------------------------------- the API */
++struct disk_cache *
++disk_cache_create(const char *gpu_name, const char *driver_id, uint64_t driver_flags)
++{
++   if (env_var_as_boolean("MESA_GLSL_CACHE_DISABLE", false) ||
++       env_var_as_boolean("MESA_SHADER_CACHE_DISABLE", false))
++      return NULL;
++   const char *dir = getenv("MESA_SHADER_CACHE_DIR");
++   if (!dir)
++      dir = getenv("MESA_GLSL_CACHE_DIR");
++   if (!dir || !*dir)
++      return NULL; /* the program did not ask for one */
++
++   struct disk_cache *cache = calloc(1, sizeof *cache);
++   if (!cache)
++      return NULL;
++
++   /* the driver keys, as disk_cache.c builds them */
++   uint8_t cache_version = CACHE_VERSION;
++   uint8_t ptr_size = sizeof(void *);
++   size_t id_size = strlen(driver_id) + 1, gpu_size = strlen(gpu_name) + 1;
++   cache->driver_keys_blob_size = sizeof cache_version + id_size + gpu_size + sizeof ptr_size + sizeof driver_flags;
++   cache->driver_keys_blob = malloc(cache->driver_keys_blob_size);
++   if (!cache->driver_keys_blob) {
++      free(cache);
++      return NULL;
++   }
++   uint8_t *p = cache->driver_keys_blob;
++   memcpy(p, &cache_version, sizeof cache_version), p += sizeof cache_version;
++   memcpy(p, driver_id, id_size), p += id_size;
++   memcpy(p, gpu_name, gpu_size), p += gpu_size;
++   memcpy(p, &ptr_size, sizeof ptr_size), p += sizeof ptr_size;
++   memcpy(p, &driver_flags, sizeof driver_flags);
++   _mesa_sha1_compute(cache->driver_keys_blob, cache->driver_keys_blob_size, cache->driver_sha1);
++
++   mtx_init(&cache->lock, mtx_plain);
++   mkdir(dir, 0777); /* EEXIST is fine */
++   size_t len = strlen(dir) + 32;
++   char *path = malloc(len);
++   if (!path || (snprintf(path, len, "%s/mesa_shader_cache.pack", dir), !open_pack(cache, path))) {
++      free(path);
++      mtx_destroy(&cache->lock);
++      free(cache->driver_keys_blob);
++      free(cache);
++      return NULL;
++   }
++   free(path);
++   cache->have_queue = util_queue_init(&cache->queue, "disk$", 64, 1,
++                                       UTIL_QUEUE_INIT_RESIZE_IF_FULL | UTIL_QUEUE_INIT_USE_MINIMUM_PRIORITY);
++   g_last = cache;
++   return cache;
++}
++
++void
++disk_cache_destroy(struct disk_cache *cache)
++{
++   if (!cache)
++      return;
++   if (g_last == cache)
++      g_last = NULL;
++   if (cache->have_queue) {
++      util_queue_finish(&cache->queue);
++      util_queue_destroy(&cache->queue);
++   }
++   if (cache->file)
++      fclose(cache->file);
++   free(cache->objects.slots);
++   free(cache->keys.slots);
++   mtx_destroy(&cache->lock);
++   free(cache->driver_keys_blob);
++   free(cache);
++}
++
++void
++disk_cache_wait_for_idle(struct disk_cache *cache)
++{
++   if (cache && cache->have_queue)
++      util_queue_finish(&cache->queue);
++}
++
++void
++disk_cache_remove(struct disk_cache *cache, const cache_key key)
++{
++   mtx_lock(&cache->lock);
++   struct slot *s = table_find(&cache->objects, key, false);
++   if (s && s->used == 1) {
++      s->used = 2;
++      mtx_unlock(&cache->lock);
++      queue_entry(cache, KIND_REMOVED, key, NULL, 0);
++      return;
++   }
++   mtx_unlock(&cache->lock);
++}
++
++void
++disk_cache_put(struct disk_cache *cache, const cache_key key, const void *data, size_t size,
++               struct cache_item_metadata *cache_item_metadata)
++{
++   if (cache->blob_put_cb) {
++      cache->blob_put_cb(key, CACHE_KEY_SIZE, data, size);
++      return;
++   }
++   queue_entry(cache, KIND_OBJECT, key, data, size);
++}
++
++void *
++disk_cache_get(struct disk_cache *cache, const cache_key key, size_t *size)
++{
++   if (size)
++      *size = 0;
++   if (cache->blob_get_cb) {
++      const signed long max_blob_size = 64 * 1024;
++      void *blob = malloc(max_blob_size);
++      if (!blob)
++         return NULL;
++      signed long bytes = cache->blob_get_cb(key, CACHE_KEY_SIZE, blob, max_blob_size);
++      if (!bytes) {
++         free(blob);
++         return NULL;
++      }
++      if (size)
++         *size = bytes;
++      return blob;
++   }
++   mtx_lock(&cache->lock);
++   struct slot *s = table_find(&cache->objects, key, false);
++   if (!s || s->used != 1 || !cache->file) {
++      cache->misses++;
++      mtx_unlock(&cache->lock);
++      return NULL;
++   }
++   uint32_t offset = s->offset, n = s->size;
++   uint8_t *data = malloc(n ? n : 1);
++   struct entry_header e;
++   bool ok = data && !fseek(cache->file, offset - sizeof e, SEEK_SET) && fread(&e, sizeof e, 1, cache->file) == 1 &&
++             e.magic == ENTRY_MAGIC && e.size == n && !memcmp(e.key, key, CACHE_KEY_SIZE) &&
++             (!n || fread(data, n, 1, cache->file) == 1) && (!n || util_hash_crc32(data, n) == e.crc);
++   if (!ok) {
++      s->used = 2; /* damaged: compiled again, and stored again */
++      cache->misses++;
++      mtx_unlock(&cache->lock);
++      free(data);
++      return NULL;
++   }
++   cache->hits++;
++   mtx_unlock(&cache->lock);
++   if (size)
++      *size = n;
++   return data;
++}
++
++void
++disk_cache_put_key(struct disk_cache *cache, const cache_key key)
++{
++   if (cache->blob_put_cb) {
++      const uint32_t *key_chunk = (const uint32_t *)key;
++      cache->blob_put_cb(key, CACHE_KEY_SIZE, key_chunk, sizeof(uint32_t));
++      return;
++   }
++   mtx_lock(&cache->lock);
++   struct slot *s = table_find(&cache->keys, key, false);
++   bool known = s && s->used == 1;
++   mtx_unlock(&cache->lock);
++   if (!known)
++      queue_entry(cache, KIND_KEY, key, NULL, 0);
++}
++
++bool
++disk_cache_has_key(struct disk_cache *cache, const cache_key key)
++{
++   if (cache->blob_get_cb) {
++      uint32_t blob;
++      return cache->blob_get_cb(key, CACHE_KEY_SIZE, &blob, sizeof(uint32_t));
++   }
++   mtx_lock(&cache->lock);
++   struct slot *s = table_find(&cache->keys, key, false);
++   bool known = s && s->used == 1;
++   mtx_unlock(&cache->lock);
++   return known;
++}
++
++void
++disk_cache_compute_key(struct disk_cache *cache, const void *data, size_t size, cache_key key)
++{
++   struct mesa_sha1 ctx;
++   _mesa_sha1_init(&ctx);
++   _mesa_sha1_update(&ctx, cache->driver_keys_blob, cache->driver_keys_blob_size);
++   _mesa_sha1_update(&ctx, data, size);
++   _mesa_sha1_final(&ctx, key);
++}
++
++void
++disk_cache_set_callbacks(struct disk_cache *cache, disk_cache_put_cb put, disk_cache_get_cb get)
++{
++   cache->blob_put_cb = put;
++   cache->blob_get_cb = get;
++}
++
++/* For the program's log: objects found and not found, objects stored, the
++ * index's sizes and the pack's length. */
++void
++disk_cache_switch_stats(struct disk_cache *cache, unsigned *hits, unsigned *misses, unsigned *puts,
++                        unsigned *objects, unsigned *keys, unsigned *bytes)
++{
++   if (!cache)
++      return;
++   mtx_lock(&cache->lock);
++   *hits = cache->hits, *misses = cache->misses, *puts = cache->puts;
++   *objects = cache->objects.count, *keys = cache->keys.count, *bytes = cache->end;
++   mtx_unlock(&cache->lock);
++}
++
++/* The same for the cache created last (the program has no pointer to the
++ * screen's): 0 when there is none. */
++int
++disk_cache_switch_global_stats(unsigned *hits, unsigned *misses, unsigned *puts, unsigned *objects, unsigned *keys,
++                               unsigned *bytes)
++{
++   struct disk_cache *cache = g_last;
++   if (!cache)
++      return 0;
++   disk_cache_switch_stats(cache, hits, misses, puts, objects, keys, bytes);
++   return 1;
++}
++
++#endif /* ENABLE_SHADER_CACHE && __SWITCH__ */

@@ -1,0 +1,88 @@
+--- a/src/gallium/drivers/nouveau/nouveau_fence.c
++++ b/src/gallium/drivers/nouveau/nouveau_fence.c
+@@ -24,6 +24,7 @@
+ #include "nouveau_winsys.h"
+ #include "nouveau_fence.h"
+ #include "util/os_time.h"
++#include <stdio.h>
+ 
+ #ifdef PIPE_OS_UNIX
+ #include <sched.h>
+@@ -187,6 +188,42 @@
+    return true;
+ }
+ 
++#ifdef __SWITCH__
++/* SSX port diagnostic: the waits that block (the fence not yet signalled),
++ * per caller (and the caller of nouveau_screen_fence_finish when it is that):
++ * count and time, read and reset by nouveau_fence_wait_report(). */
++#define FW_SLOTS 24
++static struct { const void *from, *outer; unsigned n; int64_t ns; } fw_stat[FW_SLOTS];
++const void *nouveau_fence_wait_outer;
++static void fw_note(const void *from, int64_t ns)
++{
++   for (int i = 0; i < FW_SLOTS; i++) {
++      if (!fw_stat[i].from) {
++         fw_stat[i].from = from, fw_stat[i].outer = nouveau_fence_wait_outer;
++      }
++      if (fw_stat[i].from == from && fw_stat[i].outer == nouveau_fence_wait_outer) {
++         fw_stat[i].n++, fw_stat[i].ns += ns;
++         return;
++      }
++   }
++}
++/* one line per caller into buf: "<from> <outer> <n> <us>"; addresses as
++ * offsets from nouveau_fence_wait, to be put to names with the ELF */
++int nouveau_fence_wait_report(char *buf, int size);
++int nouveau_fence_wait_report(char *buf, int size)
++{
++   int len = 0;
++   for (int i = 0; i < FW_SLOTS && fw_stat[i].from; i++) {
++      len += snprintf(buf + len, size > len ? size - len : 0, " [%+ld %+ld: %u, %lld us]",
++                      (long)((const char *)fw_stat[i].from - (const char *)nouveau_fence_wait),
++                      fw_stat[i].outer ? (long)((const char *)fw_stat[i].outer - (const char *)nouveau_fence_wait) : 0L,
++                      fw_stat[i].n, (long long)(fw_stat[i].ns / 1000));
++      fw_stat[i].from = fw_stat[i].outer = NULL, fw_stat[i].n = 0, fw_stat[i].ns = 0;
++   }
++   return len;
++}
++#endif
++
+ bool
+ nouveau_fence_wait(struct nouveau_fence *fence, struct pipe_debug_callback *debug)
+ {
+@@ -199,6 +236,16 @@
+ 
+    if (!nouveau_fence_kick(fence))
+       return false;
++#ifdef __SWITCH__
++   if (fence->state != NOUVEAU_FENCE_STATE_SIGNALLED)
++      nouveau_fence_update(screen, false);
++   if (fence->state != NOUVEAU_FENCE_STATE_SIGNALLED) {
++      const int64_t t0 = os_time_get_nano();
++      while (fence->state != NOUVEAU_FENCE_STATE_SIGNALLED)
++         nouveau_fence_update(screen, false);
++      fw_note(__builtin_return_address(0), os_time_get_nano() - t0);
++   }
++#endif
+ 
+    do {
+       if (fence->state == NOUVEAU_FENCE_STATE_SIGNALLED) {
+--- a/src/gallium/drivers/nouveau/nouveau_screen.c
++++ b/src/gallium/drivers/nouveau/nouveau_screen.c
+@@ -85,7 +85,15 @@
+    if (!timeout)
+       return nouveau_fence_signalled(nouveau_fence(pfence));
+ 
++#ifdef __SWITCH__
++   extern const void *nouveau_fence_wait_outer;
++   nouveau_fence_wait_outer = __builtin_return_address(0);
++   bool r = nouveau_fence_wait(nouveau_fence(pfence), NULL);
++   nouveau_fence_wait_outer = NULL;
++   return r;
++#else
+    return nouveau_fence_wait(nouveau_fence(pfence), NULL);
++#endif
+ }
+ 
+ 
